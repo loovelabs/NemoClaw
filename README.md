@@ -35,19 +35,46 @@ nemoclaw-blueprint/                 Versioned blueprint artifact (separate relea
 
 ## Quick Start
 
-### For existing OpenClaw users (primary path)
+### Prerequisites
+
+- Docker running (Colima, Docker Desktop, or native Linux)
+- `openshell` CLI: `pip install 'openshell @ git+https://github.com/NVIDIA/OpenShell.git'`
+- `gh` CLI authenticated with `read:packages` scope
+- `NVIDIA_API_KEY` from [build.nvidia.com](https://build.nvidia.com)
+
+### One-command setup
 
 ```bash
-openclaw plugins install ./nemoclaw
-openclaw nemoclaw migrate --profile ollama
-openclaw nemoclaw connect
+export NVIDIA_API_KEY=nvapi-...
+./scripts/setup-demo.sh
 ```
 
-### For net-new users (OpenShell-native preferred)
+This starts the gateway, patches DNS (Colima), creates providers (NVIDIA cloud +
+local Ollama if running), sets the inference route, and builds the sandbox.
+
+### Connect and use
 
 ```bash
-openshell sandbox create --from openclaw --name openclaw
-openshell sandbox connect openclaw
+openshell sandbox connect nemoclaw
+export NVIDIA_API_KEY=nvapi-...
+nemoclaw-start
+openclaw agent --agent main --local -m "your prompt" --session-id s1
+```
+
+### Switch inference providers
+
+```bash
+# NVIDIA cloud (Nemotron 3 Super 120B)
+openshell inference set --provider nvidia-nim --model nvidia/nemotron-3-super-120b-a12b
+
+# Local Ollama (Nemotron Mini)
+openshell inference set --provider ollama-local --model nemotron-mini
+```
+
+### Monitor
+
+```bash
+openshell term
 ```
 
 ## Commands
