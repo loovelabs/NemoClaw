@@ -254,4 +254,91 @@ exit 97
     assert.match(output, /Both Colima and Docker Desktop are available/);
     assert.doesNotMatch(output, /colima should not be started/);
   });
+
+  it("can run via stdin without a sibling runtime.sh file", () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "nemoclaw-curl-pipe-installer-"));
+    const fakeBin = path.join(tmp, "bin");
+    const prefix = path.join(tmp, "prefix");
+    fs.mkdirSync(fakeBin);
+    fs.mkdirSync(path.join(prefix, "bin"), { recursive: true });
+
+    writeExecutable(
+      path.join(fakeBin, "node"),
+      `#!/usr/bin/env bash
+if [ "$1" = "-v" ] || [ "$1" = "--version" ]; then
+  echo "v22.14.0"
+  exit 0
+fi
+exit 99
+`,
+    );
+
+    writeExecutable(
+      path.join(fakeBin, "npm"),
+      `#!/usr/bin/env bash
+set -euo pipefail
+if [ "$1" = "--version" ]; then
+  echo "10.9.2"
+  exit 0
+fi
+if [ "$1" = "config" ] && [ "$2" = "get" ] && [ "$3" = "prefix" ]; then
+  echo "$NPM_PREFIX"
+  exit 0
+fi
+if [ "$1" = "install" ] && [ "$2" = "-g" ]; then
+  cat > "$NPM_PREFIX/bin/nemoclaw" <<'EOS'
+#!/usr/bin/env bash
+if [ "$1" = "--version" ]; then
+  echo "v0.1.0-test"
+  exit 0
+fi
+exit 0
+EOS
+  chmod +x "$NPM_PREFIX/bin/nemoclaw"
+  exit 0
+fi
+echo "unexpected npm invocation: $*" >&2
+exit 98
+`,
+    );
+
+    writeExecutable(
+      path.join(fakeBin, "docker"),
+      `#!/usr/bin/env bash
+if [ "$1" = "info" ]; then
+  exit 0
+fi
+exit 0
+`,
+    );
+
+    writeExecutable(
+      path.join(fakeBin, "openshell"),
+      `#!/usr/bin/env bash
+if [ "$1" = "--version" ]; then
+  echo "openshell 0.0.9"
+  exit 0
+fi
+exit 0
+`,
+    );
+
+    const scriptContents = fs.readFileSync(CURL_PIPE_INSTALLER, "utf-8");
+    const result = spawnSync("bash", [], {
+      cwd: tmp,
+      input: scriptContents,
+      encoding: "utf-8",
+      env: {
+        ...process.env,
+        HOME: tmp,
+        PATH: `${fakeBin}:${TEST_SYSTEM_PATH}`,
+        NPM_PREFIX: prefix,
+      },
+    });
+
+    const output = `${result.stdout}${result.stderr}`;
+    assert.equal(result.status, 0);
+    assert.match(output, /Installation complete!/);
+    assert.match(output, /nemoclaw v0\.1\.0-test is ready/);
+  });
 });
