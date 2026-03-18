@@ -214,7 +214,12 @@ if [ ${#NEMOCLAW_CMD[@]} -gt 0 ]; then
   exec "${NEMOCLAW_CMD[@]}"
 fi
 
-nohup openclaw gateway run > /tmp/gateway.log 2>&1 &
-echo "[gateway] openclaw gateway launched (pid $!)"
+# Start auto-pair watcher in background
 start_auto_pair
 print_dashboard_urls
+
+# Run gateway in foreground as PID 1 so the container stays alive.
+# This replaces the original nohup background approach which caused
+# the container to exit immediately after the script finished.
+echo "[gateway] launching openclaw gateway (foreground)..."
+exec openclaw gateway run --bind lan --port 18789 --token "${OPENCLAW_GATEWAY_TOKEN:-}"
