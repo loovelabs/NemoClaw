@@ -1,9 +1,10 @@
-# NemoClaw sandbox image — OpenClaw + NemoClaw plugin inside OpenShell
+# NemoClaw — OpenClaw + NemoClaw plugin inside OpenShell sandbox image
 # LOOVE fork: configured for Anthropic Claude as primary inference provider.
-
 FROM node:22-slim
-
 ENV DEBIAN_FRONTEND=noninteractive
+
+# Set Playwright browsers path to a shared, world-readable location
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 python3-pip python3-venv \
@@ -11,13 +12,49 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         iproute2 \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Chromium system dependencies (must run as root, before USER directive)
+# These are the shared libraries required by Playwright's Chromium binary.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libglib2.0-0 \
+        libnss3 \
+        libatk1.0-0 \
+        libatk-bridge2.0-0 \
+        libcups2 \
+        libdrm2 \
+        libxkbcommon0 \
+        libxcomposite1 \
+        libxdamage1 \
+        libxrandr2 \
+        libgbm1 \
+        libpango-1.0-0 \
+        libcairo2 \
+        libasound2 \
+        libx11-6 \
+        libx11-xcb1 \
+        libxcb1 \
+        libxext6 \
+        libxfixes3 \
+        libxi6 \
+        libxrender1 \
+        libxtst6 \
+        fonts-liberation \
+        libappindicator3-1 \
+        xdg-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Playwright Chromium browser into /ms-playwright (world-readable shared location)
+# PLAYWRIGHT_BROWSERS_PATH is already set above so this installs to /ms-playwright
+RUN npx playwright install chromium \
+    && chmod -R a+rX /ms-playwright
+
 # Create sandbox user (matches OpenShell convention)
 RUN groupadd -r sandbox && useradd -r -g sandbox -d /sandbox -s /bin/bash sandbox \
     && mkdir -p /sandbox/.openclaw /sandbox/.nemoclaw \
     && chown -R sandbox:sandbox /sandbox
 
 # Install OpenClaw CLI
-RUN npm install -g openclaw@2026.3.11
+RUN npm config set fetch-retries 3 && npm config set fetch-retry-mintimeout 10000 \
+    && npm install -g openclaw@2026.3.13
 
 # Install PyYAML for blueprint runner
 RUN pip3 install --break-system-packages pyyaml
@@ -53,7 +90,7 @@ RUN python3 -c "\
 import json, os; \
 config = { \
     'meta': { \
-        'lastTouchedVersion': '2026.3.11', \
+        'lastTouchedVersion': '2026.3.13', \
         'lastTouchedAt': '2026-03-18T00:00:00.000Z' \
     }, \
     'agents': { \
