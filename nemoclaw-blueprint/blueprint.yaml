@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
+# LOOVE fork: added anthropic profile for native Anthropic provider support.
 
 version: "0.1.0"
 min_openshell_version: "0.1.0"
@@ -11,10 +12,12 @@ profiles:
   - ncp
   - nim-local
   - vllm
+  - anthropic
 
 description: |
-  NemoClaw blueprint: orchestrates OpenClaw sandbox creation, migration,
-  and NIM/vLLM inference routing inside OpenShell.
+  NemoClaw blueprint (LOOVE fork): orchestrates OpenClaw sandbox creation,
+  migration, and inference routing inside OpenShell. Adds native Anthropic
+  provider support for Claude models.
 
 components:
   sandbox:
@@ -54,6 +57,17 @@ components:
         credential_env: "OPENAI_API_KEY"
         credential_default: "dummy"
 
+      anthropic:
+        provider_type: "anthropic"
+        provider_name: "anthropic-native"
+        endpoint: "https://api.anthropic.com"
+        model: "anthropic/claude-opus-4-20250514"
+        credential_env: "ANTHROPIC_API_KEY"
+        fallback_models:
+          - "anthropic/claude-sonnet-4-20250514"
+          - "moonshot/kimi-k2.5"
+          - "openai/gpt-4o"
+
   policy:
     base: "sandboxes/openclaw/policy.yaml"
     additions:
@@ -62,4 +76,16 @@ components:
         endpoints:
           - host: "nim-service.local"
             port: 8000
+            protocol: rest
+      anthropic_api:
+        name: anthropic_api
+        endpoints:
+          - host: "api.anthropic.com"
+            port: 443
+            protocol: rest
+      moonshot_api:
+        name: moonshot_api
+        endpoints:
+          - host: "api.moonshot.ai"
+            port: 443
             protocol: rest

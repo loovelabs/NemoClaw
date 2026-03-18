@@ -1,4 +1,5 @@
 # NemoClaw sandbox image — OpenClaw + NemoClaw plugin inside OpenShell
+# LOOVE fork: configured for Anthropic Claude as primary inference provider.
 
 FROM node:22-slim
 
@@ -46,19 +47,43 @@ USER sandbox
 RUN mkdir -p /sandbox/.openclaw/agents/main/agent \
     && chmod 700 /sandbox/.openclaw
 
-# Write openclaw.json: set nvidia as default provider, route through
-# inference.local (OpenShell gateway proxy). No API key needed here —
-# openshell injects credentials via the provider configuration.
+# Write openclaw.json: LOOVE configuration with Anthropic Claude as primary
+# provider. API keys are injected at runtime via environment variables.
 RUN python3 -c "\
 import json, os; \
 config = { \
-    'agents': {'defaults': {'model': {'primary': 'nvidia/nemotron-3-super-120b-a12b'}}}, \
-    'models': {'mode': 'merge', 'providers': {'nvidia': { \
-        'baseUrl': 'https://inference.local/v1', \
-        'apiKey': 'openshell-managed', \
-        'api': 'openai-completions', \
-        'models': [{'id': 'nemotron-3-super-120b-a12b', 'name': 'NVIDIA Nemotron 3 Super 120B', 'reasoning': False, 'input': ['text'], 'cost': {'input': 0, 'output': 0, 'cacheRead': 0, 'cacheWrite': 0}, 'contextWindow': 131072, 'maxTokens': 4096}] \
-    }}} \
+    'meta': { \
+        'lastTouchedVersion': '2026.3.11', \
+        'lastTouchedAt': '2026-03-18T00:00:00.000Z' \
+    }, \
+    'agents': { \
+        'defaults': { \
+            'model': { \
+                'primary': 'anthropic/claude-opus-4-20250514', \
+                'fallbacks': [ \
+                    'anthropic/claude-sonnet-4-20250514', \
+                    'moonshot/kimi-k2.5', \
+                    'openai/gpt-4o' \
+                ] \
+            }, \
+            'bootstrapMaxChars': 40000, \
+            'bootstrapTotalMaxChars': 60000, \
+            'thinkingDefault': 'medium' \
+        } \
+    }, \
+    'commands': { \
+        'native': 'auto', \
+        'nativeSkills': 'auto' \
+    }, \
+    'gateway': { \
+        'mode': 'local', \
+        'controlUi': { \
+            'dangerouslyDisableDeviceAuth': True, \
+            'allowedOrigins': ['https://engine.loove.io'], \
+            'allowInsecureAuth': True \
+        }, \
+        'trustedProxies': ['172.18.0.0/16', '172.17.0.0/16', '127.0.0.1', '::1'] \
+    } \
 }; \
 path = os.path.expanduser('~/.openclaw/openclaw.json'); \
 json.dump(config, open(path, 'w'), indent=2); \

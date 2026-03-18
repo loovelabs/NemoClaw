@@ -1,0 +1,49 @@
+# LOOVE NemoClaw deployment — runs OpenClaw inside NemoClaw sandbox
+# Replaces /opt/openclaw/docker-compose.yml on the DO droplet.
+#
+# Usage:
+#   docker compose -f docker-compose.loove.yml up -d
+#
+# The .env file must contain:
+#   OPENCLAW_GATEWAY_TOKEN, ANTHROPIC_API_KEY, OPENAI_API_KEY,
+#   BRAVE_API_KEY, MOONSHOT_API_KEY, OPENCLAW_BROKER_TOKEN,
+#   OPENCLAW_PIPY_TOKEN, SUPABASE_URL, SUPABASE_KEY, GITHUB_PAT
+
+services:
+  nemoclaw-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: loovelabs/nemoclaw:latest
+    env_file:
+      - .env
+    environment:
+      HOME: /sandbox
+      TERM: xterm-256color
+      CHAT_UI_URL: "https://engine.loove.io"
+    volumes:
+      # Mount host OpenClaw config into sandbox — preserves conversation
+      # history, agent state, and workspace across container restarts.
+      - /root/.openclaw:/sandbox/.openclaw
+      - /root/.openclaw/workspace:/sandbox/.openclaw/workspace
+      - /opt/openclaw-data:/opt/openclaw-data
+    ports:
+      - "127.0.0.1:18789:18789"
+    init: true
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://127.0.0.1:18789/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 3G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    command:
+      - /usr/local/bin/nemoclaw-start
