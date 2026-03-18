@@ -146,4 +146,18 @@ describe("shell runtime helpers", () => {
     assert.equal(result.status, 0);
     assert.equal(result.stdout.trim(), "9.9.9.9");
   });
+
+  it("does not consume installer stdin when reading the Colima VM nameserver", () => {
+    const result = runShell(
+      `function colima() { cat > /dev/null || true; printf 'nameserver 100.100.100.100\\n'; }
+       source "${RUNTIME_SH}"
+       printf 'sandbox-answer\\n' | {
+         get_colima_vm_nameserver > /tmp/nemoclaw-colima-ns.out
+         cat
+       }`,
+    );
+
+    assert.equal(result.status, 0);
+    assert.equal(result.stdout.trim(), "sandbox-answer");
+  });
 });

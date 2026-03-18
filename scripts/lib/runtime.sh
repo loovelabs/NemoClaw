@@ -115,7 +115,7 @@ get_colima_vm_nameserver() {
 
   local profile="${COLIMA_PROFILE:-default}"
   local resolv_conf
-  resolv_conf="$(colima ssh --profile "$profile" -- cat /etc/resolv.conf 2>/dev/null || true)"
+  resolv_conf="$(colima ssh --profile "$profile" -- cat /etc/resolv.conf < /dev/null 2>/dev/null || true)"
   first_non_loopback_nameserver "$resolv_conf"
 }
 
